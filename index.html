@@ -304,7 +304,7 @@
 
     .person {
       display: grid;
-      grid-template-columns: 1fr auto auto;
+      grid-template-columns: auto 1fr auto auto;
       align-items: center;
       gap: 8px;
       min-height: 52px;
@@ -314,9 +314,31 @@
       background: var(--panel);
     }
 
+    .person.dragging {
+      opacity: 0.48;
+    }
+
+    .person.drop-before {
+      border-top-color: var(--primary);
+      box-shadow: inset 0 3px 0 var(--primary);
+    }
+
+    .person.drop-after {
+      border-bottom-color: var(--primary);
+      box-shadow: inset 0 -3px 0 var(--primary);
+    }
+
     .person.active {
       border-color: rgba(29, 111, 122, 0.55);
       box-shadow: inset 4px 0 0 var(--primary);
+    }
+
+    .person.active.drop-before {
+      box-shadow: inset 4px 0 0 var(--primary), inset 0 3px 0 var(--primary);
+    }
+
+    .person.active.drop-after {
+      box-shadow: inset 4px 0 0 var(--primary), inset 0 -3px 0 var(--primary);
     }
 
     .person-name {
@@ -344,6 +366,16 @@
 
     .icon-btn.remove {
       color: var(--danger);
+    }
+
+    .drag-handle {
+      color: var(--muted);
+      cursor: grab;
+      touch-action: none;
+    }
+
+    .drag-handle:active {
+      cursor: grabbing;
     }
 
     .form-row {
@@ -661,6 +693,7 @@
       isRunning: false,
       lastTick: null
     };
+    let draggedPersonId = null;
 
     const clampCurrentIndex = () => {
       if (state.people.length === 0) {
@@ -711,6 +744,37 @@
       });
     };
 
+    const clearDropMarkers = () => {
+      elements.peopleList.querySelectorAll(".drop-before, .drop-after").forEach((row) => {
+        row.classList.remove("drop-before", "drop-after");
+      });
+    };
+
+    const reorderPerson = (draggedId, targetId, placeAfter) => {
+      if (!draggedId || !targetId || draggedId === targetId) return;
+
+      const currentId = currentPerson()?.id || null;
+      const fromIndex = state.people.findIndex((person) => person.id === draggedId);
+      if (fromIndex === -1) return;
+
+      const [movedPerson] = state.people.splice(fromIndex, 1);
+      let targetIndex = state.people.findIndex((person) => person.id === targetId);
+      if (targetIndex === -1) {
+        state.people.splice(fromIndex, 0, movedPerson);
+        return;
+      }
+
+      if (placeAfter) {
+        targetIndex += 1;
+      }
+
+      state.people.splice(targetIndex, 0, movedPerson);
+      state.currentIndex = currentId
+        ? state.people.findIndex((person) => person.id === currentId)
+        : state.currentIndex;
+      render();
+    };
+
     const renderPeople = () => {
       elements.peopleList.innerHTML = "";
 
@@ -725,6 +789,52 @@
       state.people.forEach((person, index) => {
         const row = document.createElement("div");
         row.className = `person${index === state.currentIndex ? " active" : ""}`;
+        row.dataset.personId = person.id;
+
+        row.addEventListener("dragover", (event) => {
+          if (!draggedPersonId || draggedPersonId === person.id) return;
+
+          event.preventDefault();
+          const bounds = row.getBoundingClientRect();
+          const placeAfter = event.clientY > bounds.top + bounds.height / 2;
+          clearDropMarkers();
+          row.classList.add(placeAfter ? "drop-after" : "drop-before");
+        });
+
+        row.addEventListener("dragleave", () => {
+          row.classList.remove("drop-before", "drop-after");
+        });
+
+        row.addEventListener("drop", (event) => {
+          if (!draggedPersonId) return;
+
+          event.preventDefault();
+          const bounds = row.getBoundingClientRect();
+          const placeAfter = event.clientY > bounds.top + bounds.height / 2;
+          const idToMove = draggedPersonId;
+          draggedPersonId = null;
+          clearDropMarkers();
+          reorderPerson(idToMove, person.id, placeAfter);
+        });
+
+        const dragHandle = document.createElement("button");
+        dragHandle.type = "button";
+        dragHandle.className = "icon-btn drag-handle";
+        dragHandle.title = "Arrastrar para ordenar";
+        dragHandle.setAttribute("aria-label", `Arrastrar a ${person.name}`);
+        dragHandle.textContent = "=";
+        dragHandle.draggable = true;
+        dragHandle.addEventListener("dragstart", (event) => {
+          draggedPersonId = person.id;
+          row.classList.add("dragging");
+          event.dataTransfer.effectAllowed = "move";
+          event.dataTransfer.setData("text/plain", person.id);
+        });
+        dragHandle.addEventListener("dragend", () => {
+          draggedPersonId = null;
+          row.classList.remove("dragging");
+          clearDropMarkers();
+        });
 
         const nameWrap = document.createElement("button");
         nameWrap.type = "button";
@@ -749,7 +859,7 @@
         remove.textContent = "x";
         remove.addEventListener("click", () => removePerson(person.id));
 
-        row.append(details, nameWrap, remove);
+        row.append(dragHandle, details, nameWrap, remove);
         elements.peopleList.append(row);
       });
     };
