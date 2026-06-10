@@ -1,0 +1,1036 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Cronometro Jubi BPS</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f4f6f8;
+      --panel: #ffffff;
+      --panel-strong: #eef3f7;
+      --text: #17212b;
+      --muted: #637083;
+      --line: #d8e0e8;
+      --primary: #1d6f7a;
+      --primary-dark: #15525a;
+      --accent: #c7532f;
+      --ok: #247347;
+      --warn: #a45f00;
+      --danger: #a73535;
+      --shadow: 0 18px 45px rgba(23, 33, 43, 0.1);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background:
+        linear-gradient(135deg, rgba(29, 111, 122, 0.12), transparent 35%),
+        linear-gradient(315deg, rgba(199, 83, 47, 0.1), transparent 32%),
+        var(--bg);
+      color: var(--text);
+    }
+
+    button,
+    input,
+    textarea {
+      font: inherit;
+    }
+
+    button {
+      border: 0;
+      cursor: pointer;
+    }
+
+    button:disabled {
+      cursor: not-allowed;
+      opacity: 0.55;
+    }
+
+    .app {
+      width: min(1180px, calc(100% - 32px));
+      margin: 0 auto;
+      padding: 28px 0;
+    }
+
+    header {
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+      align-items: flex-end;
+      margin-bottom: 18px;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(1.6rem, 4vw, 2.35rem);
+      letter-spacing: 0;
+    }
+
+    .subtitle {
+      margin: 6px 0 0;
+      color: var(--muted);
+      max-width: 680px;
+    }
+
+    .status-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      min-height: 36px;
+      padding: 8px 12px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.68);
+      color: var(--muted);
+      white-space: nowrap;
+    }
+
+    .dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: var(--muted);
+    }
+
+    .dot.running {
+      background: var(--ok);
+      box-shadow: 0 0 0 5px rgba(36, 115, 71, 0.13);
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: minmax(320px, 1fr) minmax(300px, 420px);
+      gap: 18px;
+      align-items: start;
+    }
+
+    .panel {
+      background: rgba(255, 255, 255, 0.92);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      box-shadow: var(--shadow);
+    }
+
+    .timer-panel {
+      padding: 24px;
+    }
+
+    .speaker-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+
+    .speaker-label {
+      color: var(--muted);
+      font-size: 0.9rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+
+    .speaker-name {
+      margin-top: 4px;
+      font-size: clamp(1.35rem, 3vw, 2rem);
+      font-weight: 750;
+      overflow-wrap: anywhere;
+    }
+
+    .round-input {
+      width: 122px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 10px 12px;
+      background: var(--panel);
+      color: var(--text);
+    }
+
+    .timer-wrap {
+      display: grid;
+      place-items: center;
+      min-height: 280px;
+      border-radius: 8px;
+      background: var(--panel-strong);
+      border: 1px solid var(--line);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .progress-ring {
+      width: min(250px, 72vw);
+      aspect-ratio: 1;
+      border-radius: 50%;
+      display: grid;
+      place-items: center;
+      background:
+        conic-gradient(var(--primary) var(--progress, 0deg), #d7e1e8 0deg),
+        #d7e1e8;
+      transition: background 0.18s linear;
+    }
+
+    .progress-ring::before {
+      content: "";
+      position: absolute;
+      width: min(202px, calc(72vw - 48px));
+      aspect-ratio: 1;
+      border-radius: 50%;
+      background: var(--panel);
+      box-shadow: inset 0 0 0 1px var(--line);
+    }
+
+    .time-readout {
+      position: relative;
+      text-align: center;
+      z-index: 1;
+      padding: 18px;
+    }
+
+    .time-main {
+      font-variant-numeric: tabular-nums;
+      font-size: clamp(2.45rem, 7vw, 4.25rem);
+      line-height: 1;
+      font-weight: 800;
+      letter-spacing: 0;
+    }
+
+    .time-extra {
+      margin-top: 8px;
+      color: var(--muted);
+      font-variant-numeric: tabular-nums;
+    }
+
+    .controls {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+      margin-top: 16px;
+    }
+
+    .btn {
+      min-height: 44px;
+      padding: 10px 12px;
+      border-radius: 8px;
+      background: var(--panel-strong);
+      color: var(--text);
+      border: 1px solid var(--line);
+      font-weight: 700;
+    }
+
+    .btn.primary {
+      background: var(--primary);
+      color: #fff;
+      border-color: var(--primary);
+    }
+
+    .btn.primary:hover {
+      background: var(--primary-dark);
+    }
+
+    .btn.danger {
+      color: var(--danger);
+    }
+
+    .btn.ok {
+      color: var(--ok);
+    }
+
+    .adjustments {
+      margin-top: 18px;
+      display: grid;
+      gap: 10px;
+    }
+
+    .adjustment-row {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 8px;
+    }
+
+    .small-btn {
+      min-height: 38px;
+      border-radius: 8px;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      color: var(--text);
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .small-btn.minus {
+      color: var(--accent);
+    }
+
+    .small-btn.plus {
+      color: var(--ok);
+    }
+
+    .side {
+      display: grid;
+      gap: 18px;
+    }
+
+    .section {
+      padding: 18px;
+    }
+
+    .section-title {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+
+    h2 {
+      margin: 0;
+      font-size: 1.05rem;
+    }
+
+    .list {
+      display: grid;
+      gap: 8px;
+      max-height: 365px;
+      overflow: auto;
+      padding-right: 2px;
+    }
+
+    .person {
+      display: grid;
+      grid-template-columns: auto 1fr auto auto;
+      align-items: center;
+      gap: 8px;
+      min-height: 52px;
+      padding: 8px 8px 8px 12px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel);
+    }
+
+    .person.dragging {
+      opacity: 0.48;
+    }
+
+    .person.drop-before {
+      border-top-color: var(--primary);
+      box-shadow: inset 0 3px 0 var(--primary);
+    }
+
+    .person.drop-after {
+      border-bottom-color: var(--primary);
+      box-shadow: inset 0 -3px 0 var(--primary);
+    }
+
+    .person.active {
+      border-color: rgba(29, 111, 122, 0.55);
+      box-shadow: inset 4px 0 0 var(--primary);
+    }
+
+    .person.active.drop-before {
+      box-shadow: inset 4px 0 0 var(--primary), inset 0 3px 0 var(--primary);
+    }
+
+    .person.active.drop-after {
+      box-shadow: inset 4px 0 0 var(--primary), inset 0 -3px 0 var(--primary);
+    }
+
+    .person-name {
+      font-weight: 750;
+      overflow-wrap: anywhere;
+    }
+
+    .person-time {
+      color: var(--muted);
+      font-variant-numeric: tabular-nums;
+      font-size: 0.92rem;
+    }
+
+    .icon-btn {
+      width: 36px;
+      height: 36px;
+      display: inline-grid;
+      place-items: center;
+      border-radius: 8px;
+      background: var(--panel-strong);
+      border: 1px solid var(--line);
+      color: var(--text);
+      font-weight: 800;
+    }
+
+    .icon-btn.remove {
+      color: var(--danger);
+    }
+
+    .drag-handle {
+      color: var(--muted);
+      cursor: grab;
+      touch-action: none;
+    }
+
+    .drag-handle:active {
+      cursor: grabbing;
+    }
+
+    .form-row {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 8px;
+    }
+
+    input,
+    textarea {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel);
+      color: var(--text);
+      padding: 11px 12px;
+      resize: vertical;
+    }
+
+    textarea {
+      min-height: 126px;
+      line-height: 1.35;
+    }
+
+    .muted {
+      color: var(--muted);
+      font-size: 0.92rem;
+      line-height: 1.35;
+    }
+
+    .summary {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 8px;
+      margin-top: 14px;
+    }
+
+    .metric {
+      background: var(--panel-strong);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 10px;
+      min-width: 0;
+    }
+
+    .metric-value {
+      font-weight: 800;
+      font-variant-numeric: tabular-nums;
+      overflow-wrap: anywhere;
+    }
+
+    .metric-label {
+      color: var(--muted);
+      font-size: 0.82rem;
+      margin-top: 2px;
+    }
+
+    .empty {
+      border: 1px dashed var(--line);
+      border-radius: 8px;
+      padding: 18px;
+      color: var(--muted);
+      text-align: center;
+      background: rgba(255, 255, 255, 0.58);
+    }
+
+    @media (max-width: 860px) {
+      .layout {
+        grid-template-columns: 1fr;
+      }
+
+      header {
+        align-items: flex-start;
+        flex-direction: column;
+      }
+
+      .status-pill {
+        white-space: normal;
+      }
+    }
+
+    @media (max-width: 560px) {
+      .app {
+        width: min(100% - 20px, 1180px);
+        padding: 16px 0;
+      }
+
+      .timer-panel,
+      .section {
+        padding: 14px;
+      }
+
+      .speaker-row {
+        align-items: stretch;
+        flex-direction: column;
+      }
+
+      .round-input {
+        width: 100%;
+      }
+
+      .controls,
+      .summary {
+        grid-template-columns: 1fr;
+      }
+
+      .adjustment-row {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .timer-wrap {
+        min-height: 235px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <header>
+      <div>
+        <h1>Cronometro Jubi BPS</h1>
+        <p class="subtitle">Controla el tiempo por persona, ajusta el contador en vivo y suma participantes durante la sesion.</p>
+      </div>
+      <div class="status-pill" aria-live="polite">
+        <span id="statusDot" class="dot"></span>
+        <span id="statusText">Pausado</span>
+      </div>
+    </header>
+
+    <div class="layout">
+      <section class="panel timer-panel" aria-label="Cronometro">
+        <div class="speaker-row">
+          <div>
+            <div class="speaker-label">Hablando ahora</div>
+            <div id="currentSpeaker" class="speaker-name">Sin participante</div>
+          </div>
+          <label>
+            <span class="speaker-label">Tiempo base</span>
+            <select id="baseMinutes" class="round-input">
+              <option value="60">1 min</option>
+              <option value="120" selected>2 min</option>
+              <option value="180">3 min</option>
+              <option value="300">5 min</option>
+              <option value="600">10 min</option>
+            </select>
+          </label>
+        </div>
+
+        <div class="timer-wrap">
+          <div id="progressRing" class="progress-ring">
+            <div class="time-readout">
+              <div id="timeLeft" class="time-main">03:00</div>
+              <div id="elapsedInfo" class="time-extra">Consumido: 00:00</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="controls">
+          <button id="startPauseBtn" class="btn primary" type="button">Iniciar</button>
+          <button id="nextBtn" class="btn ok" type="button">Siguiente</button>
+          <button id="resetBtn" class="btn danger" type="button">Reiniciar</button>
+        </div>
+
+        <div class="adjustments" aria-label="Ajustes de tiempo">
+          <div class="muted">Quitar tiempo</div>
+          <div id="minusControls" class="adjustment-row"></div>
+          <div class="muted">Agregar tiempo</div>
+          <div id="plusControls" class="adjustment-row"></div>
+        </div>
+
+        <div class="summary" aria-label="Resumen">
+          <div class="metric">
+            <div id="totalSpoken" class="metric-value">00:00</div>
+            <div class="metric-label">Total hablado</div>
+          </div>
+          <div class="metric">
+            <div id="peopleCount" class="metric-value">0</div>
+            <div class="metric-label">Participantes</div>
+          </div>
+          <div class="metric">
+            <div id="averageTime" class="metric-value">00:00</div>
+            <div class="metric-label">Promedio</div>
+          </div>
+        </div>
+      </section>
+
+      <aside class="side">
+        <section class="panel section" aria-label="Participantes">
+          <div class="section-title">
+            <h2>Participantes</h2>
+            <button id="clearTimesBtn" class="btn" type="button">Limpiar tiempos</button>
+          </div>
+          <form id="addForm" class="form-row">
+            <input id="newName" type="text" autocomplete="off" placeholder="Agregar nombre">
+            <button class="btn primary" type="submit">Agregar</button>
+          </form>
+          <div id="peopleList" class="list" style="margin-top: 12px;"></div>
+        </section>
+
+        <section class="panel section" aria-label="Precarga de nombres">
+          <div class="section-title">
+            <h2>Precarga</h2>
+            <button id="loadNamesBtn" class="btn" type="button">Cargar lista</button>
+          </div>
+          <textarea id="bulkNames" spellcheck="false" placeholder="Un nombre por linea&#10;Ana&#10;Bruno&#10;Carla"></textarea>
+          <p class="muted">Al cargar una lista se reemplazan los participantes actuales de la sesion. Los tiempos vuelven a cero.</p>
+        </section>
+      </aside>
+    </div>
+  </main>
+
+  <script>
+    const DEFAULT_NAMES = ["Lucho", "Nestor", "Pavel", "Nico M", "Gian", "Fabri", "Cindy", "Agus", "Leidy", "Paula", "Ara", "Andy", "Santi"];
+    const INTERVALS = [
+      { label: "10s", seconds: 10 },
+      { label: "30s", seconds: 30 },
+      { label: "1m", seconds: 60 },
+      { label: "2m", seconds: 120 },
+      { label: "5m", seconds: 300 }
+    ];
+    const STORAGE_KEY = "jubi-bps-timer-state-v3";
+    const DEFAULT_SECONDS = 120;
+
+    const $ = (selector) => document.querySelector(selector);
+    const elements = {
+      statusDot: $("#statusDot"),
+      statusText: $("#statusText"),
+      currentSpeaker: $("#currentSpeaker"),
+      baseMinutes: $("#baseMinutes"),
+      progressRing: $("#progressRing"),
+      timeLeft: $("#timeLeft"),
+      elapsedInfo: $("#elapsedInfo"),
+      startPauseBtn: $("#startPauseBtn"),
+      nextBtn: $("#nextBtn"),
+      resetBtn: $("#resetBtn"),
+      minusControls: $("#minusControls"),
+      plusControls: $("#plusControls"),
+      totalSpoken: $("#totalSpoken"),
+      peopleCount: $("#peopleCount"),
+      averageTime: $("#averageTime"),
+      clearTimesBtn: $("#clearTimesBtn"),
+      addForm: $("#addForm"),
+      newName: $("#newName"),
+      peopleList: $("#peopleList"),
+      bulkNames: $("#bulkNames"),
+      loadNamesBtn: $("#loadNamesBtn")
+    };
+
+    const makeId = () => {
+      if (window.crypto && typeof window.crypto.randomUUID === "function") {
+        return window.crypto.randomUUID();
+      }
+
+      return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    };
+
+    const blankPerson = (name) => ({
+      id: makeId(),
+      name,
+      spokenSeconds: 0
+    });
+
+    const shuffle = (items) => {
+      const shuffled = [...items];
+
+      for (let index = shuffled.length - 1; index > 0; index -= 1) {
+        const randomIndex = Math.floor(Math.random() * (index + 1));
+        [shuffled[index], shuffled[randomIndex]] = [shuffled[randomIndex], shuffled[index]];
+      }
+
+      return shuffled;
+    };
+
+    const hasDefaultRoster = (people) => {
+      if (!Array.isArray(people) || people.length !== DEFAULT_NAMES.length) {
+        return false;
+      }
+
+      const expected = [...DEFAULT_NAMES].sort().join("|");
+      const current = people.map((person) => person.name).sort().join("|");
+      return current === expected;
+    };
+
+    const createDefaultState = () => ({
+      people: shuffle(DEFAULT_NAMES).map(blankPerson),
+      currentIndex: 0,
+      remainingSeconds: DEFAULT_SECONDS,
+      baseSeconds: DEFAULT_SECONDS
+    });
+
+    const loadState = () => {
+      try {
+        const saved = JSON.parse(sessionStorage.getItem(STORAGE_KEY));
+        if (saved && Array.isArray(saved.people)) {
+          if (hasDefaultRoster(saved.people)) {
+            return createDefaultState();
+          }
+
+          return {
+            people: saved.people,
+            currentIndex: Number.isInteger(saved.currentIndex) ? saved.currentIndex : 0,
+            remainingSeconds: Number.isFinite(saved.remainingSeconds) ? saved.remainingSeconds : DEFAULT_SECONDS,
+            baseSeconds: Number.isFinite(saved.baseSeconds) ? saved.baseSeconds : DEFAULT_SECONDS
+          };
+        }
+      } catch {
+        sessionStorage.removeItem(STORAGE_KEY);
+      }
+
+      return createDefaultState();
+    };
+
+    const state = {
+      ...loadState(),
+      isRunning: false,
+      lastTick: null
+    };
+    let draggedPersonId = null;
+
+    const clampCurrentIndex = () => {
+      if (state.people.length === 0) {
+        state.currentIndex = -1;
+        return;
+      }
+      if (state.currentIndex < 0 || state.currentIndex >= state.people.length) {
+        state.currentIndex = 0;
+      }
+    };
+
+    const currentPerson = () => state.people[state.currentIndex] || null;
+
+    const saveState = () => {
+      sessionStorage.setItem(STORAGE_KEY, JSON.stringify({
+        people: state.people,
+        currentIndex: state.currentIndex,
+        remainingSeconds: state.remainingSeconds,
+        baseSeconds: state.baseSeconds
+      }));
+    };
+
+    const formatTime = (seconds) => {
+      const value = Math.max(0, Math.floor(seconds));
+      const mins = Math.floor(value / 60).toString().padStart(2, "0");
+      const secs = (value % 60).toString().padStart(2, "0");
+      return `${mins}:${secs}`;
+    };
+
+    const renderAdjustmentButtons = () => {
+      elements.minusControls.innerHTML = "";
+      elements.plusControls.innerHTML = "";
+
+      INTERVALS.forEach(({ label, seconds }) => {
+        const minus = document.createElement("button");
+        minus.type = "button";
+        minus.className = "small-btn minus";
+        minus.textContent = `-${label}`;
+        minus.addEventListener("click", () => adjustRemaining(-seconds));
+        elements.minusControls.append(minus);
+
+        const plus = document.createElement("button");
+        plus.type = "button";
+        plus.className = "small-btn plus";
+        plus.textContent = `+${label}`;
+        plus.addEventListener("click", () => adjustRemaining(seconds));
+        elements.plusControls.append(plus);
+      });
+    };
+
+    const clearDropMarkers = () => {
+      elements.peopleList.querySelectorAll(".drop-before, .drop-after").forEach((row) => {
+        row.classList.remove("drop-before", "drop-after");
+      });
+    };
+
+    const reorderPerson = (draggedId, targetId, placeAfter) => {
+      if (!draggedId || !targetId || draggedId === targetId) return;
+
+      const currentId = currentPerson()?.id || null;
+      const fromIndex = state.people.findIndex((person) => person.id === draggedId);
+      if (fromIndex === -1) return;
+
+      const [movedPerson] = state.people.splice(fromIndex, 1);
+      let targetIndex = state.people.findIndex((person) => person.id === targetId);
+      if (targetIndex === -1) {
+        state.people.splice(fromIndex, 0, movedPerson);
+        return;
+      }
+
+      if (placeAfter) {
+        targetIndex += 1;
+      }
+
+      state.people.splice(targetIndex, 0, movedPerson);
+      state.currentIndex = currentId
+        ? state.people.findIndex((person) => person.id === currentId)
+        : state.currentIndex;
+      render();
+    };
+
+    const renderPeople = () => {
+      elements.peopleList.innerHTML = "";
+
+      if (state.people.length === 0) {
+        const empty = document.createElement("div");
+        empty.className = "empty";
+        empty.textContent = "Agrega o carga participantes para empezar.";
+        elements.peopleList.append(empty);
+        return;
+      }
+
+      state.people.forEach((person, index) => {
+        const row = document.createElement("div");
+        row.className = `person${index === state.currentIndex ? " active" : ""}`;
+        row.dataset.personId = person.id;
+
+        row.addEventListener("dragover", (event) => {
+          if (!draggedPersonId || draggedPersonId === person.id) return;
+
+          event.preventDefault();
+          const bounds = row.getBoundingClientRect();
+          const placeAfter = event.clientY > bounds.top + bounds.height / 2;
+          clearDropMarkers();
+          row.classList.add(placeAfter ? "drop-after" : "drop-before");
+        });
+
+        row.addEventListener("dragleave", () => {
+          row.classList.remove("drop-before", "drop-after");
+        });
+
+        row.addEventListener("drop", (event) => {
+          if (!draggedPersonId) return;
+
+          event.preventDefault();
+          const bounds = row.getBoundingClientRect();
+          const placeAfter = event.clientY > bounds.top + bounds.height / 2;
+          const idToMove = draggedPersonId;
+          draggedPersonId = null;
+          clearDropMarkers();
+          reorderPerson(idToMove, person.id, placeAfter);
+        });
+
+        const dragHandle = document.createElement("button");
+        dragHandle.type = "button";
+        dragHandle.className = "icon-btn drag-handle";
+        dragHandle.title = "Arrastrar para ordenar";
+        dragHandle.setAttribute("aria-label", `Arrastrar a ${person.name}`);
+        dragHandle.textContent = "=";
+        dragHandle.draggable = true;
+        dragHandle.addEventListener("dragstart", (event) => {
+          draggedPersonId = person.id;
+          row.classList.add("dragging");
+          event.dataTransfer.effectAllowed = "move";
+          event.dataTransfer.setData("text/plain", person.id);
+        });
+        dragHandle.addEventListener("dragend", () => {
+          draggedPersonId = null;
+          row.classList.remove("dragging");
+          clearDropMarkers();
+        });
+
+        const nameWrap = document.createElement("button");
+        nameWrap.type = "button";
+        nameWrap.className = "icon-btn";
+        nameWrap.title = "Seleccionar";
+        nameWrap.textContent = index === state.currentIndex ? "*" : "o";
+        nameWrap.addEventListener("click", () => selectPerson(index));
+
+        const details = document.createElement("div");
+        const name = document.createElement("div");
+        name.className = "person-name";
+        name.textContent = person.name;
+        const time = document.createElement("div");
+        time.className = "person-time";
+        time.textContent = formatTime(person.spokenSeconds);
+        details.append(name, time);
+
+        const remove = document.createElement("button");
+        remove.type = "button";
+        remove.className = "icon-btn remove";
+        remove.title = "Quitar participante";
+        remove.textContent = "x";
+        remove.addEventListener("click", () => removePerson(person.id));
+
+        row.append(dragHandle, details, nameWrap, remove);
+        elements.peopleList.append(row);
+      });
+    };
+
+    const render = () => {
+      clampCurrentIndex();
+      const person = currentPerson();
+      const total = state.people.reduce((sum, item) => sum + item.spokenSeconds, 0);
+      const elapsedCurrent = person ? person.spokenSeconds : 0;
+      const progressMax = Math.max(state.baseSeconds, state.remainingSeconds, 1);
+      const progress = Math.max(0, Math.min(360, (state.remainingSeconds / progressMax) * 360));
+
+      elements.statusDot.classList.toggle("running", state.isRunning);
+      elements.statusText.textContent = state.isRunning ? "En curso" : "Pausado";
+      elements.currentSpeaker.textContent = person ? person.name : "Sin participante";
+      elements.timeLeft.textContent = formatTime(state.remainingSeconds);
+      elements.elapsedInfo.textContent = `Consumido: ${formatTime(elapsedCurrent)}`;
+      elements.progressRing.style.setProperty("--progress", `${progress}deg`);
+      elements.startPauseBtn.textContent = state.isRunning ? "Pausar" : "Iniciar";
+      elements.baseMinutes.value = String(state.baseSeconds);
+      elements.totalSpoken.textContent = formatTime(total);
+      elements.peopleCount.textContent = String(state.people.length);
+      elements.averageTime.textContent = formatTime(state.people.length ? total / state.people.length : 0);
+      elements.nextBtn.disabled = state.people.length === 0;
+      elements.startPauseBtn.disabled = state.people.length === 0;
+
+      renderPeople();
+      saveState();
+    };
+
+    const tick = (timestamp) => {
+      if (!state.isRunning) {
+        state.lastTick = null;
+        return;
+      }
+
+      if (state.lastTick === null) {
+        state.lastTick = timestamp;
+      }
+
+      const deltaSeconds = Math.max(0, (timestamp - state.lastTick) / 1000);
+      state.lastTick = timestamp;
+
+      const person = currentPerson();
+      if (person && deltaSeconds > 0) {
+        person.spokenSeconds += deltaSeconds;
+        state.remainingSeconds = Math.max(0, state.remainingSeconds - deltaSeconds);
+      }
+
+      if (state.remainingSeconds <= 0) {
+        state.isRunning = false;
+      }
+
+      render();
+      requestAnimationFrame(tick);
+    };
+
+    const start = () => {
+      if (!currentPerson()) return;
+      state.isRunning = true;
+      state.lastTick = null;
+      requestAnimationFrame(tick);
+      render();
+    };
+
+    const pause = () => {
+      state.isRunning = false;
+      state.lastTick = null;
+      render();
+    };
+
+    const resetTimer = () => {
+      state.remainingSeconds = state.baseSeconds;
+      pause();
+    };
+
+    const nextPerson = () => {
+      if (state.people.length === 0) return;
+      state.currentIndex = (state.currentIndex + 1) % state.people.length;
+      state.remainingSeconds = state.baseSeconds;
+      state.lastTick = null;
+      render();
+    };
+
+    const selectPerson = (index) => {
+      state.currentIndex = index;
+      state.remainingSeconds = state.baseSeconds;
+      state.lastTick = null;
+      render();
+    };
+
+    const adjustRemaining = (seconds) => {
+      state.remainingSeconds = Math.max(0, state.remainingSeconds + seconds);
+      if (state.remainingSeconds === 0) {
+        pause();
+      } else {
+        render();
+      }
+    };
+
+    const addPerson = (name) => {
+      const trimmed = name.trim();
+      if (!trimmed) return;
+
+      state.people.push(blankPerson(trimmed));
+      if (state.currentIndex === -1) {
+        state.currentIndex = 0;
+        state.remainingSeconds = state.baseSeconds;
+      }
+      render();
+    };
+
+    const removePerson = (id) => {
+      const index = state.people.findIndex((person) => person.id === id);
+      if (index === -1) return;
+
+      state.people.splice(index, 1);
+      if (index < state.currentIndex) {
+        state.currentIndex -= 1;
+      }
+      clampCurrentIndex();
+      if (state.people.length === 0) {
+        pause();
+      }
+      render();
+    };
+
+    const loadBulkNames = () => {
+      const names = elements.bulkNames.value
+        .split(/\r?\n/)
+        .map((name) => name.trim())
+        .filter(Boolean);
+
+      state.people = names.map(blankPerson);
+      state.currentIndex = names.length ? 0 : -1;
+      state.remainingSeconds = state.baseSeconds;
+      pause();
+    };
+
+    elements.startPauseBtn.addEventListener("click", () => {
+      state.isRunning ? pause() : start();
+    });
+
+    elements.nextBtn.addEventListener("click", nextPerson);
+    elements.resetBtn.addEventListener("click", resetTimer);
+
+    elements.baseMinutes.addEventListener("change", () => {
+      state.baseSeconds = Number(elements.baseMinutes.value);
+      state.remainingSeconds = state.baseSeconds;
+      render();
+    });
+
+    elements.addForm.addEventListener("submit", (event) => {
+      event.preventDefault();
+      addPerson(elements.newName.value);
+      elements.newName.value = "";
+      elements.newName.focus();
+    });
+
+    elements.clearTimesBtn.addEventListener("click", () => {
+      state.people.forEach((person) => {
+        person.spokenSeconds = 0;
+      });
+      state.remainingSeconds = state.baseSeconds;
+      pause();
+    });
+
+    elements.loadNamesBtn.addEventListener("click", loadBulkNames);
+
+    renderAdjustmentButtons();
+    render();
+  </script>
+</body>
+</html>
