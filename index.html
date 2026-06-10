@@ -875,7 +875,7 @@
       elements.statusDot.classList.toggle("running", state.isRunning);
       elements.statusText.textContent = state.isRunning ? "En curso" : "Pausado";
       elements.currentSpeaker.textContent = person ? person.name : "Sin participante";
-      elements.timeLeft.textContent = formatTime(state.remainingSeconds);
+      elements.timeLeft.textContent = formatTime(Math.ceil(state.remainingSeconds));
       elements.elapsedInfo.textContent = `Consumido: ${formatTime(elapsedCurrent)}`;
       elements.progressRing.style.setProperty("--progress", `${progress}deg`);
       elements.startPauseBtn.textContent = state.isRunning ? "Pausar" : "Iniciar";
