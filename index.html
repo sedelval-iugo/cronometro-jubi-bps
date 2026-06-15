@@ -723,9 +723,12 @@
       }));
     };
 
-    const formatTime = (seconds) => {
+    const formatTime = (seconds, rounding = "floor") => {
       const sign = seconds < 0 ? "-" : "";
-      const value = Math.abs(Math.floor(seconds));
+      const absolute = Math.abs(seconds);
+      const value = rounding === "ceil"
+        ? Math.ceil(absolute)
+        : Math.floor(absolute);
       const mins = Math.floor(value / 60).toString().padStart(2, "0");
       const secs = (value % 60).toString().padStart(2, "0");
       return `${sign}${mins}:${secs}`;
@@ -915,7 +918,7 @@
       elements.statusDot.classList.toggle("running", state.isRunning);
       elements.statusText.textContent = state.isRunning ? "En curso" : "Pausado";
       elements.currentSpeaker.textContent = person ? person.name : "Sin participante";
-      elements.timeLeft.textContent = formatTime(state.remainingSeconds);
+      elements.timeLeft.textContent = formatTime(state.remainingSeconds, "ceil");
       elements.elapsedInfo.textContent = `Consumido: ${formatTime(elapsedCurrent)}`;
       elements.progressRing.style.setProperty("--progress", `${timerState.progress}deg`);
       elements.progressRing.style.setProperty("--ring-color", timerState.color);
