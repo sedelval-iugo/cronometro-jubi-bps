@@ -15,6 +15,8 @@
       --line: #d8e0e8;
       --primary: #1d6f7a;
       --primary-dark: #15525a;
+      --time-caution: #a45f00;
+      --time-danger: #a73535;
       --accent: #c7532f;
       --ok: #247347;
       --warn: #a45f00;
@@ -171,7 +173,7 @@
       display: grid;
       place-items: center;
       background:
-        conic-gradient(var(--primary) var(--progress, 0deg), #d7e1e8 0deg),
+        conic-gradient(var(--ring-color, var(--primary)) var(--progress, 0deg), #d7e1e8 0deg),
         #d7e1e8;
       transition: background 0.18s linear;
     }
@@ -199,12 +201,17 @@
       line-height: 1;
       font-weight: 800;
       letter-spacing: 0;
+      color: var(--time-color, var(--text));
     }
 
     .time-extra {
       margin-top: 8px;
       color: var(--muted);
       font-variant-numeric: tabular-nums;
+    }
+
+    .time-extra.overdue {
+      color: var(--danger);
     }
 
     .controls {
@@ -717,10 +724,44 @@
     };
 
     const formatTime = (seconds) => {
-      const value = Math.max(0, Math.floor(seconds));
+      const sign = seconds < 0 ? "-" : "";
+      const value = Math.abs(Math.floor(seconds));
       const mins = Math.floor(value / 60).toString().padStart(2, "0");
       const secs = (value % 60).toString().padStart(2, "0");
-      return `${mins}:${secs}`;
+      return `${sign}${mins}:${secs}`;
+    };
+
+    const getTimerVisualState = () => {
+      if (state.remainingSeconds < 0) {
+        return {
+          color: "var(--time-danger)",
+          progress: 360,
+          isOverdue: true
+        };
+      }
+
+      const ratio = state.baseSeconds > 0 ? state.remainingSeconds / state.baseSeconds : 0;
+      if (ratio <= 0.2) {
+        return {
+          color: "var(--time-danger)",
+          progress: Math.max(0, Math.min(360, ratio * 360)),
+          isOverdue: false
+        };
+      }
+
+      if (ratio <= 0.5) {
+        return {
+          color: "var(--time-caution)",
+          progress: Math.max(0, Math.min(360, ratio * 360)),
+          isOverdue: false
+        };
+      }
+
+      return {
+        color: "var(--primary)",
+        progress: Math.max(0, Math.min(360, ratio * 360)),
+        isOverdue: false
+      };
     };
 
     const renderAdjustmentButtons = () => {
@@ -869,15 +910,17 @@
       const person = currentPerson();
       const total = state.people.reduce((sum, item) => sum + item.spokenSeconds, 0);
       const elapsedCurrent = person ? person.spokenSeconds : 0;
-      const progressMax = Math.max(state.baseSeconds, state.remainingSeconds, 1);
-      const progress = Math.max(0, Math.min(360, (state.remainingSeconds / progressMax) * 360));
+      const timerState = getTimerVisualState();
 
       elements.statusDot.classList.toggle("running", state.isRunning);
       elements.statusText.textContent = state.isRunning ? "En curso" : "Pausado";
       elements.currentSpeaker.textContent = person ? person.name : "Sin participante";
-      elements.timeLeft.textContent = formatTime(Math.ceil(state.remainingSeconds));
+      elements.timeLeft.textContent = formatTime(state.remainingSeconds);
       elements.elapsedInfo.textContent = `Consumido: ${formatTime(elapsedCurrent)}`;
-      elements.progressRing.style.setProperty("--progress", `${progress}deg`);
+      elements.progressRing.style.setProperty("--progress", `${timerState.progress}deg`);
+      elements.progressRing.style.setProperty("--ring-color", timerState.color);
+      elements.timeLeft.style.setProperty("--time-color", timerState.color);
+      elements.elapsedInfo.classList.toggle("overdue", timerState.isOverdue);
       elements.startPauseBtn.textContent = state.isRunning ? "Pausar" : "Iniciar";
       elements.baseMinutes.value = String(state.baseSeconds);
       elements.totalSpoken.textContent = formatTime(total);
@@ -906,11 +949,7 @@
       const person = currentPerson();
       if (person && deltaSeconds > 0) {
         person.spokenSeconds += deltaSeconds;
-        state.remainingSeconds = Math.max(0, state.remainingSeconds - deltaSeconds);
-      }
-
-      if (state.remainingSeconds <= 0) {
-        state.isRunning = false;
+        state.remainingSeconds -= deltaSeconds;
       }
 
       render();
@@ -932,6 +971,10 @@
     };
 
     const resetTimer = () => {
+      const person = currentPerson();
+      if (person) {
+        person.spokenSeconds = 0;
+      }
       state.remainingSeconds = state.baseSeconds;
       pause();
     };
@@ -952,12 +995,8 @@
     };
 
     const adjustRemaining = (seconds) => {
-      state.remainingSeconds = Math.max(0, state.remainingSeconds + seconds);
-      if (state.remainingSeconds === 0) {
-        pause();
-      } else {
-        render();
-      }
+      state.remainingSeconds += seconds;
+      render();
     };
 
     const addPerson = (name) => {
