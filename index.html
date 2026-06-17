@@ -146,6 +146,23 @@
       overflow-wrap: anywhere;
     }
 
+    .daily-hints {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 10px;
+    }
+
+    .daily-hint {
+      padding: 5px 8px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.64);
+      color: var(--muted);
+      font-size: 0.86rem;
+      line-height: 1.2;
+    }
+
     .round-input {
       width: 122px;
       border: 1px solid var(--line);
@@ -518,6 +535,11 @@
           <div>
             <div class="speaker-label">Hablando ahora</div>
             <div id="currentSpeaker" class="speaker-name">Sin participante</div>
+            <div class="daily-hints" aria-label="Guia daily">
+              <span class="daily-hint">Qué hice</span>
+              <span class="daily-hint">Qué voy a hacer</span>
+              <span class="daily-hint">Bloqueos</span>
+            </div>
           </div>
           <label>
             <span class="speaker-label">Tiempo base</span>
